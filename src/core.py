@@ -10,25 +10,25 @@ def cmd_handler(cmd, **kwargs):
 def msg_handler(cmd, **kwargs):    
     return (lambda callback : MessageHandler(cmd, callback, **kwargs))
 
-
-def update_json(update):
+def get_json(update, context):
     return {
             'chat_id' : update.message.chat_id,
+            'bot' : context.bot
             }
 
 @cmd_handler('start')
-def start(bot, update):
+def start(update, context):
     msg = "Bom dia Niterói!"
 
-    json = update_json(update)
+    json = get_json(update, context)
 
-    bot.send_message(
+    json['bot'].send_message(
             chat_id=json['chat_id'],
             text=msg
             )
 
 @cmd_handler('ponte')
-def ponte(bot, update):
+def ponte(update, context):
     msg = "A ponte tá {}."
 
     now = dt.datetime.now()
@@ -38,25 +38,25 @@ def ponte(bot, update):
     else:
         msg = msg.format('boa')
 
-    json = update_json(update)
+    json = get_json(update, context)
     
-    bot.send_message(
+    json['bot'].send_message(
             chat_id=json['chat_id'],
             text=msg
             )
 
 @msg_handler(Filters.command)
-def unknown(bot, update):
-    json = update_json(update)
+def unknown(update, context):
+    json = get_json(update, context)
 
-    bot.send_message(
+    json['bot'].send_message(
             chat_id=json['chat_id'],
             text='?'
             )
 
 
 def main():
-    updater = Updater(token=TOKEN)
+    updater = Updater(TOKEN, use_context=True)
 
     dispatcher = updater.dispatcher
 

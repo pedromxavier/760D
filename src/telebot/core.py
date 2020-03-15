@@ -109,8 +109,10 @@ class Bot:
                 return
         return new_callback
 
-    def __init__(self, *arg, **kwargs):
+    def __init__(self, *args, **kwargs):
         self.__debug = kwget('debug', kwargs, False)
+
+        self.fname = kwget('fname', kwargs, 'BOT')
 
         self.handlers = []
         self.chats = {}
@@ -239,7 +241,7 @@ class Bot:
         except:
             raise
         finally:
-            self.dump()
+            self.dump(self.fname)
 
     @property
     def token(self):

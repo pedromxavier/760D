@@ -47,7 +47,7 @@ def START_TEXT(json):
 def UNKNOWN_TEXT(json):
     return "Comando desconhecido `{text}`".format(json)
 
-bot = tb.Bot(debug=True)
+bot = tb.Bot(debug=True, fname='LV760DBOT')
 
 bot.START_TEXT = START_TEXT
 bot.UNKNOWN_TEXT = UNKNOWN_TEXT
@@ -81,6 +81,20 @@ with bot:
         }
 
         json['bot'].send_photo(**kw)
+
+    @bot.cmd_handler('lv')
+    @bot.lock_start
+    def lv(self, update, context):
+        self.debug('[LV]')
+
+        json = self.parse(update, context)
+
+        kw = {
+            'chat_id' : json['chat_id'],
+            'text'    : 'Não sei fazer isso ainda.'
+        }
+
+        json['bot'].send_message(**kw)
 
 if __name__ == '__main__':
     bot.init()

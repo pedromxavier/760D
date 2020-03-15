@@ -1,0 +1,3 @@
+ponte - Fala como está a Ponte Rio-Niterói.
+frescao - Mostra uma imagem com os horários do Frescão.
+lv - Mostra uma imagem com os horários do Linha Vermelha (duas portas).

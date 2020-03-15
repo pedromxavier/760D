@@ -14,6 +14,41 @@ def kwget(key, kwargs, default=None):
     except KeyError:
         return default
 
+class Debugger(object):
+
+    NULL_FUNC = lambda *args, **kwargs : None
+
+    def __init__(self, debug=True, level=0):
+        self.__level = level
+        self.__debug = debug
+
+    def __getitem__(self, level):
+        if self.debug and (self.level is None or self.level >= level):
+            tab = '\t' * level
+            sep = '\n' + tab
+            return lambda *args : self(tab, *args, sep=sep)
+        else:
+            return self.NULL_FUNC
+
+    def __call__(self, *args, **kwargs):
+        if self.debug: return print(*args, **kwargs)
+
+    @property
+    def level(self):
+        return self.__level
+
+    @property
+    def debug(self):
+        return self.__debug
+
+    def toggle_debug(self):
+        self.__debug = not self.__debug
+
+        if self.__debug:
+            print(":: Debug on  ::")
+        else:
+            print(":: Debug off ::")
+
 class _Tempo(object):
 
     __ref__ = None
@@ -38,7 +73,7 @@ class _Tempo(object):
 
     @property
     def evening(self):
-        return 12 <= self.now.hour < 21
+        return 12 <= self.now.hour < 18
 
     @property
     def night(self):
@@ -110,15 +145,17 @@ class Bot:
         return new_callback
 
     def __init__(self, *args, **kwargs):
-        self.__debug = kwget('debug', kwargs, False)
+        debug = kwget('debug', kwargs, False)
+        level = kwget('level', kwargs, None)
+
+        self.debug = Debugger(debug, level)
 
         self.fname = kwget('fname', kwargs, 'BOT')
 
         self.handlers = []
         self.chats = {}
 
-    def debug(self, *args, **kwargs):
-        if self.__debug: return print(*args, **kwargs)
+        self.debug[0]('[Bot __init__ Ready]')
 
     def cmd_handler(self, cmd, **kwargs):
         def decor(callback):
@@ -146,14 +183,14 @@ class Bot:
         self.add_handlers()
 
     def init(self):
-        self.debug('[Init]')
+        self.debug[0]('[Init]')
 
         ## Build Handlers
-        self.debug('    [Build]')
+        self.debug[1]('[Build]')
         self.build()
 
         ## Setup Polling
-        self.debug('    [Start Polling]')
+        self.debug[1]('[Start Polling]')
         self.updater.start_polling()
         self.updater.idle()
 
@@ -169,17 +206,17 @@ class Bot:
         ## Default /start command
         @self.cmd_handler('start')
         def start(self, update, context):
-            self.debug('[Start]')
+            self.debug[1]('[cmd :: Start]')
 
             json = self.parse(update, context)
 
-            self.debug('    [json]\n{}'.format(json))
+            self.debug[2]('[obj :: json]', json)
 
             if self.started(json):
-                self.debug('    [Already Started for {}]'.format(json['chat_id']))
+                self.debug[1]('[Already Started for {}]'.format(json['chat_id']))
                 return
             else:
-                self.debug('    [Starting for {}]'.format(json['chat_id']))
+                self.debug[1]('[Starting for {}]'.format(json['chat_id']))
                 self.chats[json['chat_id']] = Chat(json['chat_id'])
 
             kw = {
@@ -188,9 +225,13 @@ class Bot:
                 'parse_mode' : telegram.ParseMode.MARKDOWN,
             }
 
+            self.debug[2]('[obj :: kw]', kw)
+
             json['bot'].send_message(**kw)
 
             self.chats[json['chat_id']].started = True
+
+        return start
 
     def init_close(self):
         """
@@ -199,11 +240,11 @@ class Bot:
         @self.msg_handler(Filters.command)
         @self.lock_start
         def unknown(self, update, context):
-            self.debug('[Unknown]')
+            self.debug[1]('[cmd :: unknown]')
 
             json = self.parse(update, context)
 
-            self.debug('    [json]\n{}'.format(json))
+            self.debug[2]('[obj :: json]', json)
 
             kw = {
                 'chat_id'    : json['chat_id'],
@@ -211,27 +252,38 @@ class Bot:
                 'parse_mode' : telegram.ParseMode.MARKDOWN,
             }
 
+            self.debug[2]('[obj :: kw]', kw)
+
             json['bot'].send_message(**kw)
 
+        return unknown
 
     def started(self, json):
         return (json['chat_id'] in self.chats) and (self.chats[json['chat_id']].started)
 
     @staticmethod
-    def load(fname):
+    def load(**kwargs):
         """
         """
+        bot = Bot(**kwargs)
+        bot.debug[0]('[Load]')
         try:
-            with open("{}.bot".format(fname), 'rb') as file:
-                return pickle.load(file)
+            with open("{}.bot".format(bot.fname), 'rb') as file:
+                bot.debug[1]('[Loading Bot]')
+                bot.chats.update(pickle.load(file))
+                bot.debug[1]('[Bot Loaded]')
+                return bot
         except FileNotFoundError:
-            raise TelegramError('Bot file "{}.bot" not found.'.format(fname))
+            bot.debug[1]('[Creating new Bot]')
+            return bot
 
-    def dump(self, fname):
+    def dump(self):
         """
         """
-        with open("{}.bot".format(fname), 'wb') as file:
-            pickle.dump(self, file)
+        self.debug[0]('[Dump]')
+
+        with open("{}.bot".format(self.fname), 'wb') as file:
+            pickle.dump(self.chats, file)
 
     def run(self):
         try:
@@ -241,10 +293,11 @@ class Bot:
         except:
             raise
         finally:
-            self.dump(self.fname)
+            self.dump()
 
     @property
     def token(self):
+        self.debug[1]('[Load Token]')
         return self.__load_token()
 
     @staticmethod
